@@ -56,6 +56,7 @@ type Config struct {
 	MarginV int `json:"margin_v"`
 
 	// Timing settings
+	StartDelay   int `json:"start_delay"`    // Milliseconds to delay start of subtitles
 	PerWordDelay int `json:"per_word_delay"` // Milliseconds between words
 	FadeDuration int `json:"fade_duration"`  // Milliseconds for fade effect
 	LineHold     int `json:"line_hold"`      // Milliseconds to hold line after last word
@@ -107,6 +108,7 @@ func DefaultConfig() *Config {
 		MarginR: 40,
 		MarginV: 120,
 
+		StartDelay:   0,    // No delay by default
 		PerWordDelay: 300,  // 300ms between words
 		FadeDuration: 140,  // 140ms fade
 		LineHold:     2000, // 2s hold
@@ -127,6 +129,9 @@ func (c *Config) Validate() error {
 	}
 	if c.FontSize <= 0 {
 		return errors.New("font size must be positive")
+	}
+	if c.StartDelay < 0 {
+		return errors.New("start delay cannot be negative")
 	}
 	if c.PerWordDelay < 0 {
 		return errors.New("per word delay cannot be negative")

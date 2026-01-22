@@ -66,6 +66,7 @@ func main() {
 		marginV = flag.Int("marginv", defaultCfg.MarginV, "Vertical margin")
 
 		// Timing
+		startDelay   = flag.Int("start-delay", defaultCfg.StartDelay, "Delay before starting subtitles (ms)")
 		perWordDelay = flag.Int("delay", defaultCfg.PerWordDelay, "Delay between words (ms)")
 		fadeDuration = flag.Int("fade", defaultCfg.FadeDuration, "Fade duration (ms)")
 		lineHold     = flag.Int("hold", defaultCfg.LineHold, "Line hold duration (ms)")
@@ -133,6 +134,7 @@ func main() {
 	cfg.MarginL = *marginL
 	cfg.MarginR = *marginR
 	cfg.MarginV = *marginV
+	cfg.StartDelay = *startDelay
 	cfg.PerWordDelay = *perWordDelay
 	cfg.FadeDuration = *fadeDuration
 	cfg.LineHold = *lineHold
@@ -251,6 +253,7 @@ func showHelp() {
 	fmt.Printf("  --marginv int     Vertical margin (default: %d)\n", defaultCfg.MarginV)
 	fmt.Println()
 	fmt.Println("Timing:")
+	fmt.Printf("  --start-delay int Delay before starting subtitles in ms (default: %d)\n", defaultCfg.StartDelay)
 	fmt.Printf("  --delay int      Delay between words in ms (default: %d)\n", defaultCfg.PerWordDelay)
 	fmt.Printf("  --fade int       Fade duration in ms (default: %d)\n", defaultCfg.FadeDuration)
 	fmt.Printf("  --hold int       Line hold duration in ms (default: %d)\n", defaultCfg.LineHold)

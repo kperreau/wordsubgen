@@ -331,3 +331,35 @@ func TestGenerateASSWithStyleSettings(t *testing.T) {
 		t.Error("Expected style line with custom settings in content")
 	}
 }
+
+func TestGenerateASSWithStartDelay(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StartDelay = 2500 // 2.5 seconds delay
+	lines := []string{"Delayed start"}
+
+	content, err := GenerateASS(cfg, lines)
+	if err != nil {
+		t.Errorf("GenerateASS failed: %v", err)
+	}
+
+	// Check that the dialogue starts at the delayed time (2.5 seconds = 0:00:02.50)
+	if !strings.Contains(content, "Dialogue: 0,0:00:02.50,") {
+		t.Error("Expected dialogue to start at 0:00:02.50 with 2.5s delay")
+	}
+}
+
+func TestGenerateASSWithStartDelay100ms(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StartDelay = 100 // 100ms delay
+	lines := []string{"Short delay"}
+
+	content, err := GenerateASS(cfg, lines)
+	if err != nil {
+		t.Errorf("GenerateASS failed: %v", err)
+	}
+
+	// Check that the dialogue starts at the delayed time (100ms = 0:00:00.10)
+	if !strings.Contains(content, "Dialogue: 0,0:00:00.10,") {
+		t.Error("Expected dialogue to start at 0:00:00.10 with 100ms delay")
+	}
+}

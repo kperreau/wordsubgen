@@ -255,6 +255,7 @@ cfg.Logger = &MyCustomLogger{}
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `StartDelay` | int | 0 | Delay before starting subtitles (milliseconds) |
 | `PerWordDelay` | int | 300 | Delay between words (milliseconds) |
 | `FadeDuration` | int | 140 | Fade duration (milliseconds) |
 | `LineHold` | int | 2000 | Line hold duration (milliseconds) |
@@ -340,6 +341,7 @@ cfg.Logger = &MyCustomLogger{}
 
 ### Timing
 
+- `--start-delay int`: Delay before starting subtitles in ms (default: 0)
 - `--delay int`: Delay between words in ms (default: 300)
 - `--fade int`: Fade duration in ms (default: 140)
 - `--hold int`: Line hold duration in ms (default: 2000)
@@ -391,6 +393,19 @@ wordsubgen --lines "Hello world" --shadow-enabled --shadow-x 8 --shadow-y 3
 
 # No shadow (explicitly disabled)
 wordsubgen --lines "Hello world" --shadow-enabled=false
+```
+
+### Start Delay
+
+```bash
+# Delay subtitles by 100ms
+wordsubgen --lines "Hello world" --start-delay 100
+
+# Delay subtitles by 1 second
+wordsubgen --lines "Hello world" --start-delay 1000
+
+# Delay subtitles by 2.5 seconds
+wordsubgen --lines "Hello world" --start-delay 2500
 ```
 
 ### Quick Demo with Makefile

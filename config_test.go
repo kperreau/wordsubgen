@@ -27,6 +27,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Alignment != 2 {
 		t.Errorf("Expected Alignment=2, got %d", cfg.Alignment)
 	}
+	if cfg.StartDelay != 0 {
+		t.Errorf("Expected StartDelay=0, got %d", cfg.StartDelay)
+	}
 	if cfg.PerWordDelay != 300 {
 		t.Errorf("Expected PerWordDelay=300, got %d", cfg.PerWordDelay)
 	}
@@ -123,6 +126,17 @@ func TestConfigValidation(t *testing.T) {
 	err = cfg.Validate()
 	if err == nil {
 		t.Error("Expected error for alignment > 9")
+	}
+
+	// Test invalid start delay
+	cfg.Alignment = 2
+	cfg.StartDelay = -1
+	err = cfg.Validate()
+	if err == nil {
+		t.Error("Expected error for negative start delay")
+	}
+	if !strings.Contains(err.Error(), "start delay cannot be negative") {
+		t.Errorf("Expected error about start delay, got: %v", err)
 	}
 }
 

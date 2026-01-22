@@ -67,7 +67,7 @@ func GenerateASS(cfg *Config, lines []string) (string, error) {
 	content.WriteString("\n")
 
 	// Generate dialogue lines
-	currentTime := time.Duration(0)
+	currentTime := time.Duration(cfg.StartDelay) * time.Millisecond
 	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			cfg.Logger.Debug("Skipping empty line", NewField("line_number", i+1))
