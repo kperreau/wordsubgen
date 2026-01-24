@@ -8,188 +8,181 @@ import (
 	"github.com/kperreau/wordsubgen"
 )
 
-func main() {
-	// Setup logging
-	logger := wordsubgen.NewDefaultLogger()
+// cliFlags holds flag values after parsing.
+type cliFlags struct {
+	lines, file, jsonArg, jsonFile, output       string
+	width, height, fontSize                      int
+	fontName, primaryColor, secondaryColor       string
+	outlineColor, backColor                      string
+	bold, italic, underline, strikeout           bool
+	scaleX, scaleY, spacing, angle               int
+	borderStyle, outlineWidth, shadow            int
+	shadowEnabled                                bool
+	shadowX, shadowY, alignment                  int
+	marginL, marginR, marginV                    int
+	startDelay, perWordDelay, fadeDuration       int
+	lineHold, lineGap                            int
+	karaoke, help                                bool
+}
 
-	// Get default configuration to use as flag defaults
-	defaultCfg := wordsubgen.DefaultConfig()
-
-	// Command line flags
+func parseFlags() *cliFlags {
+	def := wordsubgen.DefaultConfig()
 	var (
-		lines  = flag.String("lines", "", "Input lines separated by | (e.g., 'Hello world|Second line')")
-		file   = flag.String("file", "", "Input file with lines (one per line)")
-		output = flag.String("out", "output.ass", "Output ASS file path")
-
-		// Video settings
-		width  = flag.Int("width", defaultCfg.Width, "Video width")
-		height = flag.Int("height", defaultCfg.Height, "Video height")
-
-		// Font settings
-		fontName = flag.String("font", defaultCfg.FontName, "Font name")
-		fontSize = flag.Int("fontsize", defaultCfg.FontSize, "Font size")
-
-		// Colors (hex format) - convert ASS format back to hex for flags
-		primaryColor   = flag.String("color", wordsubgen.ColorToHex(defaultCfg.PrimaryColor), "Primary text color (hex)")
-		secondaryColor = flag.String("secondary", wordsubgen.ColorToHex(defaultCfg.SecondaryColor), "Secondary color for karaoke (hex)")
-		outlineColor   = flag.String("outline", wordsubgen.ColorToHex(defaultCfg.OutlineColor), "Outline color (hex)")
-		backColor      = flag.String("background", defaultCfg.BackColor, "Background color (ASS format)")
-
-		// Style settings
-		bold      = flag.Bool("bold", defaultCfg.Bold, "Bold text")
-		italic    = flag.Bool("italic", defaultCfg.Italic, "Italic text")
-		underline = flag.Bool("underline", defaultCfg.Underline, "Underline text")
-		strikeout = flag.Bool("strikeout", defaultCfg.StrikeOut, "Strikeout text")
-
-		// Scaling
-		scaleX  = flag.Int("scalex", defaultCfg.ScaleX, "Horizontal scale (%)")
-		scaleY  = flag.Int("scaley", defaultCfg.ScaleY, "Vertical scale (%)")
-		spacing = flag.Int("spacing", defaultCfg.Spacing, "Character spacing")
-		angle   = flag.Int("angle", defaultCfg.Angle, "Text angle")
-
-		// Border and shadow
-		borderStyle  = flag.Int("borderstyle", defaultCfg.BorderStyle, "Border style")
-		outlineWidth = flag.Int("outlinewidth", defaultCfg.Outline, "Outline width")
-		shadow       = flag.Int("shadow", defaultCfg.Shadow, "Shadow width")
-
-		// Shadow effects
-		shadowEnabled = flag.Bool("shadow-enabled", defaultCfg.ShadowEnabled, "Enable shadow effect")
-		shadowX       = flag.Int("shadow-x", defaultCfg.ShadowX, "Horizontal shadow offset")
-		shadowY       = flag.Int("shadow-y", defaultCfg.ShadowY, "Vertical shadow offset")
-
-		// Alignment
-		alignment = flag.Int("alignment", defaultCfg.Alignment, "Text alignment (1=bottom-left, 2=bottom-center, 3=bottom-right, etc.)")
-
-		// Margins
-		marginL = flag.Int("marginl", defaultCfg.MarginL, "Left margin")
-		marginR = flag.Int("marginr", defaultCfg.MarginR, "Right margin")
-		marginV = flag.Int("marginv", defaultCfg.MarginV, "Vertical margin")
-
-		// Timing
-		startDelay   = flag.Int("start-delay", defaultCfg.StartDelay, "Delay before starting subtitles (ms)")
-		perWordDelay = flag.Int("delay", defaultCfg.PerWordDelay, "Delay between words (ms)")
-		fadeDuration = flag.Int("fade", defaultCfg.FadeDuration, "Fade duration (ms)")
-		lineHold     = flag.Int("hold", defaultCfg.LineHold, "Line hold duration (ms)")
-		lineGap      = flag.Int("gap", defaultCfg.LineGap, "Gap between lines (ms)")
-
-		// Features
-		karaoke = flag.Bool("karaoke", defaultCfg.Karaoke, "Enable karaoke mode")
-
-		// Other
-		help = flag.Bool("help", false, "Show help")
+		lines    = flag.String("lines", "", "Input lines separated by | (e.g., 'Hello world|Second line')")
+		file     = flag.String("file", "", "Input file with lines (one per line)")
+		jsonArg  = flag.String("json", "", "Structured JSON (words with start/end in seconds). Incompatible with --lines/--file")
+		jsonFile = flag.String("json-file", "", "Path to structured JSON file. Incompatible with --lines/--file")
+		output   = flag.String("out", "output.ass", "Output ASS file path")
+		width    = flag.Int("width", def.Width, "Video width")
+		height   = flag.Int("height", def.Height, "Video height")
+		fontName = flag.String("font", def.FontName, "Font name")
+		fontSize = flag.Int("fontsize", def.FontSize, "Font size")
+		primary  = flag.String("color", wordsubgen.ColorToHex(def.PrimaryColor), "Primary text color (hex)")
+		second   = flag.String("secondary", wordsubgen.ColorToHex(def.SecondaryColor), "Secondary color for karaoke (hex)")
+		outline  = flag.String("outline", wordsubgen.ColorToHex(def.OutlineColor), "Outline color (hex)")
+		back     = flag.String("background", def.BackColor, "Background color (ASS format)")
+		bold     = flag.Bool("bold", def.Bold, "Bold text")
+		italic   = flag.Bool("italic", def.Italic, "Italic text")
+		ul       = flag.Bool("underline", def.Underline, "Underline text")
+		so       = flag.Bool("strikeout", def.StrikeOut, "Strikeout text")
+		scaleX   = flag.Int("scalex", def.ScaleX, "Horizontal scale (%)")
+		scaleY   = flag.Int("scaley", def.ScaleY, "Vertical scale (%)")
+		spacing  = flag.Int("spacing", def.Spacing, "Character spacing")
+		angle    = flag.Int("angle", def.Angle, "Text angle")
+		bs       = flag.Int("borderstyle", def.BorderStyle, "Border style")
+		ow       = flag.Int("outlinewidth", def.Outline, "Outline width")
+		sh       = flag.Int("shadow", def.Shadow, "Shadow width")
+		shEn     = flag.Bool("shadow-enabled", def.ShadowEnabled, "Enable shadow effect")
+		shX      = flag.Int("shadow-x", def.ShadowX, "Horizontal shadow offset")
+		shY      = flag.Int("shadow-y", def.ShadowY, "Vertical shadow offset")
+		align    = flag.Int("alignment", def.Alignment, "Text alignment (1=bottom-left, 2=bottom-center, 3=bottom-right, etc.)")
+		marL     = flag.Int("marginl", def.MarginL, "Left margin")
+		marR     = flag.Int("marginr", def.MarginR, "Right margin")
+		marV     = flag.Int("marginv", def.MarginV, "Vertical margin")
+		startD   = flag.Int("start-delay", def.StartDelay, "Delay before starting subtitles (ms)")
+		perWord  = flag.Int("delay", def.PerWordDelay, "Delay between words (ms)")
+		fade     = flag.Int("fade", def.FadeDuration, "Fade duration (ms)")
+		hold     = flag.Int("hold", def.LineHold, "Line hold duration (ms)")
+		gap      = flag.Int("gap", def.LineGap, "Gap between lines (ms)")
+		karaoke  = flag.Bool("karaoke", def.Karaoke, "Enable karaoke mode")
+		help     = flag.Bool("help", false, "Show help")
 	)
-
 	flag.Parse()
+	return &cliFlags{
+		*lines, *file, *jsonArg, *jsonFile, *output,
+		*width, *height, *fontSize, *fontName, *primary, *second, *outline, *back,
+		*bold, *italic, *ul, *so, *scaleX, *scaleY, *spacing, *angle,
+		*bs, *ow, *sh, *shEn, *shX, *shY, *align, *marL, *marR, *marV,
+		*startD, *perWord, *fade, *hold, *gap, *karaoke, *help,
+	}
+}
 
-	if *help {
+func validateInput(f *cliFlags) error {
+	textMode := f.lines != "" || f.file != ""
+	jsonMode := f.jsonArg != "" || f.jsonFile != ""
+	switch {
+	case !textMode && !jsonMode:
+		return fmt.Errorf("one of --lines, --file, --json, or --json-file must be specified")
+	case textMode && jsonMode:
+		return fmt.Errorf("cannot mix text input (--lines/--file) with structured JSON (--json/--json-file)")
+	case f.lines != "" && f.file != "":
+		return fmt.Errorf("cannot specify both --lines and --file")
+	case f.jsonArg != "" && f.jsonFile != "":
+		return fmt.Errorf("cannot specify both --json and --json-file")
+	}
+	return nil
+}
+
+func buildConfig(logger wordsubgen.Logger, f *cliFlags) *wordsubgen.Config {
+	cfg := wordsubgen.DefaultConfig()
+	cfg.Logger = logger
+	cfg.Width, cfg.Height = f.width, f.height
+	cfg.FontName, cfg.FontSize = f.fontName, f.fontSize
+	cfg.PrimaryColor = wordsubgen.ColorToASS(f.primaryColor)
+	cfg.SecondaryColor = wordsubgen.ColorToASS(f.secondaryColor)
+	cfg.OutlineColor = wordsubgen.ColorToASS(f.outlineColor)
+	cfg.BackColor = f.backColor
+	cfg.Bold, cfg.Italic, cfg.Underline, cfg.StrikeOut = f.bold, f.italic, f.underline, f.strikeout
+	cfg.ScaleX, cfg.ScaleY, cfg.Spacing, cfg.Angle = f.scaleX, f.scaleY, f.spacing, f.angle
+	cfg.BorderStyle, cfg.Outline, cfg.Shadow = f.borderStyle, f.outlineWidth, f.shadow
+	cfg.ShadowEnabled, cfg.ShadowX, cfg.ShadowY = f.shadowEnabled, f.shadowX, f.shadowY
+	cfg.Alignment, cfg.MarginL, cfg.MarginR, cfg.MarginV = f.alignment, f.marginL, f.marginR, f.marginV
+	cfg.StartDelay, cfg.PerWordDelay = f.startDelay, f.perWordDelay
+	cfg.FadeDuration, cfg.LineHold, cfg.LineGap = f.fadeDuration, f.lineHold, f.lineGap
+	cfg.Karaoke = f.karaoke
+	return cfg
+}
+
+func runGenerate(cfg *wordsubgen.Config, f *cliFlags) (string, error) {
+	jsonMode := f.jsonArg != "" || f.jsonFile != ""
+
+	if jsonMode {
+		var jsonBytes []byte
+		if f.jsonArg != "" {
+			jsonBytes = []byte(f.jsonArg)
+			cfg.Logger.Info("Using structured JSON from --json", wordsubgen.NewField("length", len(jsonBytes)))
+		} else {
+			var err error
+			jsonBytes, err = os.ReadFile(f.jsonFile)
+			if err != nil {
+				return "", fmt.Errorf("read JSON file %s: %w", f.jsonFile, err)
+			}
+			cfg.Logger.Info("Read structured JSON from file", wordsubgen.NewField("file", f.jsonFile), wordsubgen.NewField("size", len(jsonBytes)))
+		}
+		phrases, err := wordsubgen.ParseStructuredJSON(jsonBytes)
+		if err != nil {
+			return "", fmt.Errorf("parse structured JSON: %w", err)
+		}
+		cfg.Logger.Info("Generating ASS from structured JSON...", wordsubgen.NewField("phrases", len(phrases)))
+		return wordsubgen.GenerateASSFromStructured(cfg, phrases)
+	}
+
+	var lines []string
+	if f.lines != "" {
+		lines = wordsubgen.ParseLinesFromString(f.lines)
+		cfg.Logger.Info("Parsed input lines", wordsubgen.NewField("input", f.lines), wordsubgen.NewField("lines", len(lines)))
+	} else {
+		var err error
+		lines, err = wordsubgen.ReadLinesFromFile(f.file, cfg.Logger)
+		if err != nil {
+			return "", fmt.Errorf("read input file: %w", err)
+		}
+		cfg.Logger.Info("Read input lines from file", wordsubgen.NewField("file", f.file), wordsubgen.NewField("lines", len(lines)))
+	}
+	if len(lines) == 0 {
+		return "", fmt.Errorf("no valid input lines found")
+	}
+	cfg.Logger.Info("Generating ASS content...")
+	return wordsubgen.GenerateASS(cfg, lines)
+}
+
+func main() {
+	logger := wordsubgen.NewDefaultLogger()
+	f := parseFlags()
+
+	if f.help {
 		showHelp()
 		return
 	}
-
-	// Set log level (for now, we'll use the default logger regardless of verbose flag)
-	// In the future, we could implement different log levels in DefaultLogger
-
-	// Validate input
-	if *lines == "" && *file == "" {
-		logger.Error("Either --lines or --file must be specified")
+	if err := validateInput(f); err != nil {
+		logger.Error(err.Error())
 		showHelp()
 		os.Exit(1)
 	}
 
-	if *lines != "" && *file != "" {
-		logger.Error("Cannot specify both --lines and --file")
-		os.Exit(1)
-	}
-
-	// Create configuration
-	cfg := wordsubgen.DefaultConfig()
-
-	// Setup logger for the library
-	cfg.Logger = logger
-
-	// Apply command line overrides
-	cfg.Width = *width
-	cfg.Height = *height
-	cfg.FontName = *fontName
-	cfg.FontSize = *fontSize
-	cfg.PrimaryColor = wordsubgen.ColorToASS(*primaryColor)
-	cfg.SecondaryColor = wordsubgen.ColorToASS(*secondaryColor)
-	cfg.OutlineColor = wordsubgen.ColorToASS(*outlineColor)
-	cfg.BackColor = wordsubgen.ColorToASS(*backColor)
-	cfg.Bold = *bold
-	cfg.Italic = *italic
-	cfg.Underline = *underline
-	cfg.StrikeOut = *strikeout
-	cfg.ScaleX = *scaleX
-	cfg.ScaleY = *scaleY
-	cfg.Spacing = *spacing
-	cfg.Angle = *angle
-	cfg.BorderStyle = *borderStyle
-	cfg.Outline = *outlineWidth
-	cfg.Shadow = *shadow
-	cfg.ShadowEnabled = *shadowEnabled
-	cfg.ShadowX = *shadowX
-	cfg.ShadowY = *shadowY
-	cfg.Alignment = *alignment
-	cfg.MarginL = *marginL
-	cfg.MarginR = *marginR
-	cfg.MarginV = *marginV
-	cfg.StartDelay = *startDelay
-	cfg.PerWordDelay = *perWordDelay
-	cfg.FadeDuration = *fadeDuration
-	cfg.LineHold = *lineHold
-	cfg.LineGap = *lineGap
-	cfg.Karaoke = *karaoke
-
-	// Get input lines
-	var inputLines []string
-	var err error
-
-	if *lines != "" {
-		inputLines = wordsubgen.ParseLinesFromString(*lines)
-		logger.Info("Parsed input lines",
-			wordsubgen.NewField("input", *lines),
-			wordsubgen.NewField("lines", len(inputLines)))
-	} else {
-		inputLines, err = wordsubgen.ReadLinesFromFile(*file, cfg.Logger)
-		if err != nil {
-			logger.Error("Failed to read input file",
-				wordsubgen.NewField("error", err),
-				wordsubgen.NewField("file", *file))
-			os.Exit(1)
-		}
-		logger.Info("Read input lines from file",
-			wordsubgen.NewField("file", *file),
-			wordsubgen.NewField("lines", len(inputLines)))
-	}
-
-	if len(inputLines) == 0 {
-		logger.Error("No valid input lines found")
-		os.Exit(1)
-	}
-
-	// Generate ASS content
-	logger.Info("Generating ASS content...")
-	content, err := wordsubgen.GenerateASS(cfg, inputLines)
+	cfg := buildConfig(logger, f)
+	content, err := runGenerate(cfg, f)
 	if err != nil {
-		logger.Error("Failed to generate ASS content",
-			wordsubgen.NewField("error", err))
+		logger.Error("Failed", wordsubgen.NewField("error", err))
 		os.Exit(1)
 	}
 
-	// Write to file
-	logger.Info("Writing ASS file...",
-		wordsubgen.NewField("output", *output))
-	err = wordsubgen.WriteASS(*output, content, cfg.Logger)
-	if err != nil {
-		logger.Error("Failed to write ASS file",
-			wordsubgen.NewField("error", err),
-			wordsubgen.NewField("file", *output))
+	logger.Info("Writing ASS file...", wordsubgen.NewField("output", f.output))
+	if err := wordsubgen.WriteASS(f.output, content, cfg.Logger); err != nil {
+		logger.Error("Failed to write ASS file", wordsubgen.NewField("error", err), wordsubgen.NewField("file", f.output))
 		os.Exit(1)
 	}
-
-	logger.Info("Successfully generated ASS file",
-		wordsubgen.NewField("file", *output))
+	logger.Info("Successfully generated ASS file", wordsubgen.NewField("file", f.output))
 }
 
 func showHelp() {
@@ -201,9 +194,12 @@ func showHelp() {
 	fmt.Println("Usage:")
 	fmt.Println("  wordsubgen [options]")
 	fmt.Println()
-	fmt.Println("Input (choose one):")
-	fmt.Println("  --lines string    Input lines separated by | (e.g., 'Hello world|Second line')")
-	fmt.Println("  --file string     Input file with lines (one per line)")
+	fmt.Println("Input (choose one, mutually exclusive):")
+	fmt.Println("  --lines string      Input lines separated by | (e.g., 'Hello world|Second line')")
+	fmt.Println("  --file string       Input file with lines (one per line)")
+	fmt.Println("  --json string       Structured JSON: {\"segments\":[{\"words\":[{\"word\":\"...\",\"start\":0.1,\"end\":0.5},...]},...]}")
+	fmt.Println("  --json-file string  Path to structured JSON file (same format as --json)")
+	fmt.Println("                      With JSON: --delay is ignored; --start-delay shifts all timings (e.g. 1500ms = 1.5s).")
 	fmt.Println()
 	fmt.Println("Output:")
 	fmt.Println("  --out string      Output ASS file path (default: output.ass)")
@@ -277,4 +273,8 @@ func showHelp() {
 	fmt.Println()
 	fmt.Println("  # Karaoke mode")
 	fmt.Println("  wordsubgen --lines 'Hello world' --karaoke --delay 500")
+	fmt.Println()
+	fmt.Println("  # From structured JSON (words with start/end in seconds)")
+	fmt.Println("  wordsubgen --json-file words.json --start-delay 1500 --out subtitle.ass")
+	fmt.Println("  wordsubgen --json '{\"segments\":[{\"words\":[{\"word\":\"Hello\",\"start\":0,\"end\":0.5},{\"word\":\"world\",\"start\":0.6,\"end\":1.2}]}]}' --out subtitle.ass")
 }

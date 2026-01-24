@@ -247,6 +247,38 @@ func TestBoolToInt(t *testing.T) {
 	}
 }
 
+func TestValidateForStructured(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Valid config
+	err := cfg.ValidateForStructured()
+	if err != nil {
+		t.Errorf("Expected no error for default config: %v", err)
+	}
+
+	// PerWordDelay=-1 is allowed in structured mode (ignored)
+	cfg.PerWordDelay = -1
+	err = cfg.ValidateForStructured()
+	if err != nil {
+		t.Errorf("ValidateForStructured should ignore PerWordDelay: %v", err)
+	}
+
+	// Other invalid values still rejected
+	cfg.PerWordDelay = 300
+	cfg.Width = 0
+	err = cfg.ValidateForStructured()
+	if err == nil {
+		t.Error("Expected error for width <= 0")
+	}
+	cfg.Width = 1080
+
+	cfg.StartDelay = -1
+	err = cfg.ValidateForStructured()
+	if err == nil {
+		t.Error("Expected error for negative StartDelay")
+	}
+}
+
 func TestShadowGeneration(t *testing.T) {
 	// Test shadow enabled
 	cfg := DefaultConfig()

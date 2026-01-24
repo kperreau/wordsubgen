@@ -159,6 +159,42 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// ValidateForStructured is like Validate but skips PerWordDelay (unused in structured JSON mode).
+func (c *Config) ValidateForStructured() error {
+	c.Logger.Debug("Validating configuration for structured mode")
+
+	if c.Width <= 0 || c.Height <= 0 {
+		return errors.New("width and height must be positive")
+	}
+	if c.FontSize <= 0 {
+		return errors.New("font size must be positive")
+	}
+	if c.StartDelay < 0 {
+		return errors.New("start delay cannot be negative")
+	}
+	if c.FadeDuration < 0 {
+		return errors.New("fade duration cannot be negative")
+	}
+	if c.LineHold < 0 {
+		return errors.New("line hold cannot be negative")
+	}
+	if c.LineGap < 0 {
+		return errors.New("line gap cannot be negative")
+	}
+	if c.Alignment < 1 || c.Alignment > 9 {
+		return errors.New("alignment must be between 1 and 9")
+	}
+	if c.ShadowX < -50 || c.ShadowX > 50 {
+		return errors.New("shadow X offset must be between -50 and 50")
+	}
+	if c.ShadowY < -50 || c.ShadowY > 50 {
+		return errors.New("shadow Y offset must be between -50 and 50")
+	}
+
+	c.Logger.Debug("Configuration validation for structured mode successful")
+	return nil
+}
+
 // ColorToASS converts a hex color string to ASS format
 func ColorToASS(color string) string {
 	// Remove # if present

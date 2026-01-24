@@ -175,6 +175,18 @@ func TestGenerateDialogueLineWithKaraoke(t *testing.T) {
 	}
 }
 
+func TestBuildASSHeader(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Width, cfg.Height = 1920, 1080
+	cfg.FontName = "Arial"
+	h := buildASSHeader(cfg)
+	for _, sub := range []string{"[Script Info]", "PlayResX: 1920", "PlayResY: 1080", "[V4+ Styles]", "Style: Default,Arial,", "[Events]", "Format: Layer, Start, End,"} {
+		if !strings.Contains(h, sub) {
+			t.Errorf("buildASSHeader: expected to contain %q", sub)
+		}
+	}
+}
+
 func TestFormatASSTime(t *testing.T) {
 	tests := []struct {
 		duration time.Duration
@@ -361,5 +373,148 @@ func TestGenerateASSWithStartDelay100ms(t *testing.T) {
 	// Check that the dialogue starts at the delayed time (100ms = 0:00:00.10)
 	if !strings.Contains(content, "Dialogue: 0,0:00:00.10,") {
 		t.Error("Expected dialogue to start at 0:00:00.10 with 100ms delay")
+	}
+}
+
+func TestParseStructuredJSON_SingleSegment(t *testing.T) {
+	data := []byte(`{"segments":[{"words":[{"word":"Découvrez","start":0.162,"end":1.024},{"word":"cette","start":1.064,"end":1.344}]}]}`)
+	phrases, err := ParseStructuredJSON(data)
+	if err != nil {
+		t.Fatalf("ParseStructuredJSON failed: %v", err)
+	}
+	if len(phrases) != 1 {
+		t.Errorf("Expected 1 segment, got %d", len(phrases))
+	}
+	if len(phrases[0].Words) != 2 {
+		t.Errorf("Expected 2 words, got %d", len(phrases[0].Words))
+	}
+	if phrases[0].Words[0].Word != "Découvrez" || phrases[0].Words[0].Start != 0.162 || phrases[0].Words[0].End != 1.024 {
+		t.Errorf("Unexpected first word: %+v", phrases[0].Words[0])
+	}
+	if phrases[0].Words[1].Word != "cette" || phrases[0].Words[1].Start != 1.064 || phrases[0].Words[1].End != 1.344 {
+		t.Errorf("Unexpected second word: %+v", phrases[0].Words[1])
+	}
+}
+
+func TestParseStructuredJSON_MultipleSegments(t *testing.T) {
+	data := []byte(`{"segments":[{"words":[{"word":"A","start":0,"end":0.5}]},{"words":[{"word":"B","start":1,"end":1.5}]}]}`)
+	phrases, err := ParseStructuredJSON(data)
+	if err != nil {
+		t.Fatalf("ParseStructuredJSON failed: %v", err)
+	}
+	if len(phrases) != 2 {
+		t.Errorf("Expected 2 segments, got %d", len(phrases))
+	}
+	if phrases[0].Words[0].Word != "A" || phrases[1].Words[0].Word != "B" {
+		t.Errorf("Unexpected words: %+v, %+v", phrases[0].Words[0], phrases[1].Words[0])
+	}
+}
+
+func TestParseStructuredJSON_ExtraFieldsIgnored(t *testing.T) {
+	data := []byte(`{"segments":[{"words":[{"word":"Hi","start":0,"end":0.5}],"extra":123}],"other":"ignored"}`)
+	phrases, err := ParseStructuredJSON(data)
+	if err != nil {
+		t.Fatalf("ParseStructuredJSON failed: %v", err)
+	}
+	if len(phrases) != 1 || len(phrases[0].Words) != 1 || phrases[0].Words[0].Word != "Hi" {
+		t.Errorf("Expected one segment with one word Hi, got %+v", phrases)
+	}
+}
+
+func TestParseStructuredJSON_Empty(t *testing.T) {
+	_, err := ParseStructuredJSON(nil)
+	if err == nil {
+		t.Error("Expected error for nil data")
+	}
+	_, err = ParseStructuredJSON([]byte(""))
+	if err == nil {
+		t.Error("Expected error for empty data")
+	}
+	_, err = ParseStructuredJSON([]byte(`{"segments":[]}`))
+	if err == nil {
+		t.Error("Expected error for empty segments")
+	}
+	_, err = ParseStructuredJSON([]byte(`{"segments":[{"words":[]}]}`))
+	if err == nil {
+		t.Error("Expected error for segment with no words")
+	}
+	_, err = ParseStructuredJSON([]byte(`{}`))
+	if err == nil {
+		t.Error("Expected error for no segments")
+	}
+}
+
+func TestParseStructuredJSON_Invalid(t *testing.T) {
+	_, err := ParseStructuredJSON([]byte("not json"))
+	if err == nil {
+		t.Error("Expected error for invalid JSON")
+	}
+}
+
+func TestGenerateASSFromStructured(t *testing.T) {
+	cfg := DefaultConfig()
+	phrases := []StructuredPhrase{
+		{Words: []TimedWord{
+			{Word: "Découvrez", Start: 0.162, End: 1.024},
+			{Word: "cette", Start: 1.064, End: 1.344},
+		}},
+	}
+
+	content, err := GenerateASSFromStructured(cfg, phrases)
+	if err != nil {
+		t.Errorf("GenerateASSFromStructured failed: %v", err)
+	}
+
+	if !strings.Contains(content, "[Script Info]") || !strings.Contains(content, "[Events]") {
+		t.Error("Expected ASS sections in content")
+	}
+	if !strings.Contains(content, "Découvrez") || !strings.Contains(content, "cette") {
+		t.Error("Expected words in content")
+	}
+	// Start at 0.162s -> 0:00:00.16
+	if !strings.Contains(content, "Dialogue: 0,0:00:00.16,") {
+		t.Error("Expected dialogue to start at 0:00:00.16 (from first word start)")
+	}
+}
+
+func TestGenerateASSFromStructured_StartDelay(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StartDelay = 1500 // 1.5 s
+	phrases := []StructuredPhrase{
+		{Words: []TimedWord{{Word: "Hello", Start: 0, End: 0.5}}},
+	}
+
+	content, err := GenerateASSFromStructured(cfg, phrases)
+	if err != nil {
+		t.Errorf("GenerateASSFromStructured failed: %v", err)
+	}
+	// 0 + 1.5 = 1.5s -> 0:00:01.50
+	if !strings.Contains(content, "Dialogue: 0,0:00:01.50,") {
+		t.Error("Expected dialogue to start at 0:00:01.50 with 1500ms StartDelay")
+	}
+}
+
+func TestGenerateASSFromStructured_PerWordDelayIgnored(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PerWordDelay = -1 // would fail Validate(), but ValidateForStructured skips it
+	phrases := []StructuredPhrase{
+		{Words: []TimedWord{{Word: "Hi", Start: 0, End: 0.3}}},
+	}
+
+	_, err := GenerateASSFromStructured(cfg, phrases)
+	if err != nil {
+		t.Errorf("GenerateASSFromStructured should not fail with PerWordDelay=-1 (ignored): %v", err)
+	}
+}
+
+func TestGenerateASSFromStructured_EmptyPhrases(t *testing.T) {
+	cfg := DefaultConfig()
+	_, err := GenerateASSFromStructured(cfg, nil)
+	if err == nil {
+		t.Error("Expected error for nil phrases")
+	}
+	_, err = GenerateASSFromStructured(cfg, []StructuredPhrase{})
+	if err == nil {
+		t.Error("Expected error for empty phrases")
 	}
 }

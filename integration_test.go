@@ -350,6 +350,62 @@ func TestWorkflowErrorHandling(t *testing.T) {
 	}
 }
 
+func TestWorkflowWithStructuredJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	jsonFile := filepath.Join(tmpDir, "words.json")
+	outputFile := filepath.Join(tmpDir, "output.ass")
+	logger := NewNoOpLogger()
+
+	jsonContent := `{"segments":[{"words":[{"word":"Découvrez","start":0.162,"end":1.024},{"word":"cette","start":1.064,"end":1.344}]}]}`
+	err := os.WriteFile(jsonFile, []byte(jsonContent), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create JSON file: %v", err)
+	}
+
+	data, err := os.ReadFile(jsonFile)
+	if err != nil {
+		t.Fatalf("Failed to read JSON file: %v", err)
+	}
+
+	phrases, err := ParseStructuredJSON(data)
+	if err != nil {
+		t.Fatalf("ParseStructuredJSON failed: %v", err)
+	}
+	if len(phrases) != 1 || len(phrases[0].Words) != 2 {
+		t.Errorf("Expected 1 phrase with 2 words, got %d phrases", len(phrases))
+	}
+
+	cfg := DefaultConfig()
+	cfg.StartDelay = 1500 // 1.5 s shift
+
+	content, err := GenerateASSFromStructured(cfg, phrases)
+	if err != nil {
+		t.Fatalf("GenerateASSFromStructured failed: %v", err)
+	}
+
+	err = WriteASS(outputFile, content, logger)
+	if err != nil {
+		t.Fatalf("WriteASS failed: %v", err)
+	}
+
+	out, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output: %v", err)
+	}
+	str := string(out)
+
+	if !strings.Contains(str, "Découvrez") || !strings.Contains(str, "cette") {
+		t.Error("Expected words in output")
+	}
+	// 0.162 + 1.5 = 1.662s -> 0:00:01.66
+	if !strings.Contains(str, "0:00:01.66") && !strings.Contains(str, "0:00:01.67") {
+		// Allow for rounding: 1.662 could be 1.66 or 1.67 in ASS
+		if !strings.Contains(str, "0:00:01.6") {
+			t.Error("Expected delayed start time (~1.66s) in output")
+		}
+	}
+}
+
 func TestWorkflowWithSpecialCharacters(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "input.txt")

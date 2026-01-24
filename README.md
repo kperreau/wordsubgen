@@ -5,6 +5,7 @@ A Go library and CLI tool for generating ASS (Advanced SubStation Alpha) subtitl
 ## Features
 
 - **Word-by-word fade effects**: Each word fades in sequentially using ASS `\alpha` tags
+- **Structured JSON input**: Generate from timed words (`word`, `start`, `end` in seconds) with `--json` / `--json-file`; `StartDelay` shifts all timings (e.g. 1500 ms = 1.5 s offset)
 - **Karaoke support**: Optional karaoke mode with `\k` tags for word highlighting
 - **Shadow effects**: Customizable shadow with directional control using `\xshad` and `\yshad` tags
 - **Flexible configuration**: Customizable fonts, colors, timing, alignment, and styling
@@ -86,6 +87,9 @@ wordsubgen --lines "Hello world" --karaoke --delay 400
 # From file
 wordsubgen --file input.txt --out subtitle.ass
 
+# From structured JSON (words with start/end in seconds); --start-delay 1500 = 1.5 s shift
+wordsubgen --json-file words.json --start-delay 1500 --out subtitle.ass
+
 # Show help with current default values
 wordsubgen --help
 ```
@@ -125,6 +129,55 @@ func main() {
         log.Fatal(err)
     }
 }
+```
+
+## Structured JSON Input
+
+You can generate subtitles from a JSON structure with a `segments` array. Each segment is a phrase with a `words` array; each word has `word`, `start` and `end` (in **seconds**). Extra fields anywhere are ignored.
+
+```json
+{
+  "segments": [
+    {
+      "words": [
+        {"word": "Découvrez", "start": 0.162, "end": 1.024},
+        {"word": "cette", "start": 1.064, "end": 1.344},
+        {"word": "superbe", "start": 1.404, "end": 1.845}
+      ]
+    },
+    {
+      "words": [
+        {"word": "Deuxième", "start": 2.0, "end": 2.5},
+        {"word": "phrase", "start": 2.6, "end": 3.0}
+      ]
+    }
+  ]
+}
+```
+
+- **StartDelay** (e.g. `--start-delay 1500`): adds 1.5 seconds to every `start` and `end` so subtitles start 1.5 s later in the video.
+- **PerWordDelay** is ignored (timings come from the JSON).
+- **FadeDuration** is still used for the word fade-in effect.
+
+### CLI
+
+```bash
+wordsubgen --json-file words.json --start-delay 1500 --out subtitle.ass
+wordsubgen --json '{"segments":[{"words":[{"word":"Hello","start":0,"end":0.5},{"word":"world","start":0.6,"end":1.2}]}]}' --out subtitle.ass
+```
+
+### Library
+
+```go
+data, _ := os.ReadFile("words.json")
+phrases, err := wordsubgen.ParseStructuredJSON(data)
+if err != nil {
+    log.Fatal(err)
+}
+cfg := wordsubgen.DefaultConfig()
+cfg.StartDelay = 1500 // 1.5 s shift
+content, err := wordsubgen.GenerateASSFromStructured(cfg, phrases)
+// then wordsubgen.WriteASS(...)
 ```
 
 ## Flexible Logging Interface
@@ -255,11 +308,11 @@ cfg.Logger = &MyCustomLogger{}
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `StartDelay` | int | 0 | Delay before starting subtitles (milliseconds) |
-| `PerWordDelay` | int | 300 | Delay between words (milliseconds) |
+| `StartDelay` | int | 0 | Delay before starting subtitles (milliseconds). In structured JSON mode: added to all word start/end times (e.g. 1500 = 1.5 s shift). |
+| `PerWordDelay` | int | 300 | Delay between words (milliseconds). **Ignored** when using structured JSON (`GenerateASSFromStructured`). |
 | `FadeDuration` | int | 140 | Fade duration (milliseconds) |
-| `LineHold` | int | 2000 | Line hold duration (milliseconds) |
-| `LineGap` | int | 0 | Gap between lines (milliseconds) |
+| `LineHold` | int | 2000 | Line hold duration (milliseconds). Not applied in structured JSON mode. |
+| `LineGap` | int | 0 | Gap between lines (milliseconds). Not applied in structured JSON mode. |
 
 ### Features
 
@@ -277,10 +330,14 @@ cfg.Logger = &MyCustomLogger{}
 
 > **Note**: All default values are dynamically generated from the `DefaultConfig()` function. Use `--help` to see the current default values.
 
-### Input Options
+### Input Options (mutually exclusive)
 
 - `--lines string`: Input lines separated by `|` (e.g., 'Hello world|Second line')
 - `--file string`: Input file with lines (one per line)
+- `--json string`: Structured JSON: `{"segments":[{"words":[{"word":"...","start":0.1,"end":0.5},...]},...]}`. `start`/`end` in seconds. Extra fields ignored.
+- `--json-file string`: Path to a structured JSON file (same format as `--json`).
+
+With `--json` or `--json-file`: `--delay` (PerWordDelay) is ignored; `--start-delay` shifts all word timings (e.g. `--start-delay 1500` adds 1.5 s to every start/end).
 
 ### Output Options
 
@@ -406,6 +463,16 @@ wordsubgen --lines "Hello world" --start-delay 1000
 
 # Delay subtitles by 2.5 seconds
 wordsubgen --lines "Hello world" --start-delay 2500
+```
+
+### Structured JSON
+
+```bash
+# From file with 1.5 s global delay
+wordsubgen --json-file words.json --start-delay 1500 --out subtitle.ass
+
+# Inline JSON (one phrase)
+wordsubgen --json '{"segments":[{"words":[{"word":"Hello","start":0,"end":0.5},{"word":"world","start":0.6,"end":1.2}]}]}' --out subtitle.ass
 ```
 
 ### Quick Demo with Makefile
